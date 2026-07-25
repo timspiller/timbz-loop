@@ -55,5 +55,9 @@
     "scripts/timbz_",
     ".env",
     ".gitignore"
-  ]
+  ],
+  "$comment_build": "What this project IS, at the repo root. The builder picks its language provider from these, so scripts/timbz_manifest.py fails CI if one goes missing or a competing manifest appears. /timbz-init sets this.",
+  "build": {
+    "required_root_files": []
+  }
 }

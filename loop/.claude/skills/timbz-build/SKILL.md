@@ -127,6 +127,39 @@ it. If you can't get green, that's a stop condition — say so.
 
 ---
 
+## Commit — stage explicitly, never `git add -A`
+
+**Never `git add -A`, `git add .`, or `git commit -a`.** Stage the exact paths
+the contract said you would change, and look at what you staged before you
+commit:
+
+```bash
+git status --short                 # what's here that you didn't expect?
+git add <path> <path> …            # only files your ACs called for
+git diff --cached --stat           # exactly what's about to be committed
+```
+
+If `git status` shows anything you didn't create — a lockfile, a `node_modules/`,
+an editor artifact, a manifest, a stray dotfile — **do not commit it and do not
+delete it.** Report it and stop. It is not yours, you don't know why it's there,
+and the answer is a human's to give.
+
+This rule exists because it already went wrong. On 2026-07-25 a `git add -A`
+swept a stray `package.json` into a commit; Railway's builder picks its language
+provider from the repo root, chose Node over Python, and shipped a production
+image with no Python in it. The whole test suite was green throughout. See
+`scripts/timbz_manifest.py`, which now fails CI for this class — but the check is
+the backstop, not the rule. **The rule is: know what you are committing.**
+
+Then verify the staged set matches the contract:
+
+```bash
+python scripts/timbz_manifest.py   # the build shape is still intact
+git diff --cached --name-only      # every path here should be in the contract
+```
+
+---
+
 ## Open the PR
 
 ```bash

@@ -54,8 +54,10 @@ copy_runtime ".timbz/SETUP.md"
 copy_runtime "scripts/timbz_discord.py"
 copy_runtime "scripts/timbz_gate.py"
 copy_runtime "scripts/timbz_guard.py"
+copy_runtime "scripts/timbz_manifest.py"
 copy_runtime "tests/test_timbz_gate.py"
 copy_runtime "tests/test_timbz_guard.py"
+copy_runtime "tests/test_timbz_manifest.py"
 copy_runtime ".github/workflows/timbz-gate.yml"
 
 # --- templates: never overwritten, these are yours ---------------------------

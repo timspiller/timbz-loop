@@ -69,6 +69,23 @@ If the contract turns out to be wrong or impossible, the loop stops, comments on
 the issue explaining what it found, labels it `timbz:needs-work`, and moves on.
 It does not improvise a different feature.
 
+## 4b. Know what you are committing
+
+**Never `git add -A`, `git add .`, or `git commit -a`.** Stage the exact paths
+the contract named, then read `git diff --cached --stat` before committing.
+
+If `git status` shows a file you didn't create, stop and report it. Don't commit
+it, don't delete it. A stray file in a working tree is a question, not a task.
+
+This is rule 4's twin, and it's here because it already caused an outage: a
+`git add -A` swept a stray `package.json` into a commit, Railway's Nixpacks
+builder picks its language provider from the repo root, chose Node over Python,
+and shipped an image with no Python in it. Production was down and every test
+was green.
+
+*Enforced by:* `scripts/timbz_manifest.py` in CI — but only for the class it
+knows about. The rule is broader than the check.
+
 ## 5. Verification before any PR opens
 
 All of these must pass locally, in the build skill, before `gh pr create`:

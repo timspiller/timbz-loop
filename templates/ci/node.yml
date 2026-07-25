@@ -76,6 +76,28 @@ jobs:
       # be the default. Raise the level if the noise floor is too high.
       - run: npm audit --audit-level=high
 
+  # A green test suite does not prove the container is built correctly. This
+  # job checks the thing that actually decides what ships: what's at the repo
+  # root. A stray package.json in a Python repo (or requirements.txt in a Node
+  # one) silently flips the builder's language provider and produces an image
+  # missing its own runtime — with every other job still green.
+  build-integrity:
+    name: build integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check the build manifest
+        run: python scripts/timbz_manifest.py
+      # TAILOR ME: if you don't deploy with Nixpacks, drop these two steps and
+      # substitute whatever proves your real build still works.
+      - name: Install nixpacks
+        run: curl -sSL https://nixpacks.com/install.sh | sudo bash
+      - name: Show what the builder would do
+        run: nixpacks plan .
+
   guardrails:
     name: guardrails
     runs-on: ubuntu-latest
