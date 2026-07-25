@@ -1,0 +1,59 @@
+{
+  "$comment": "Timbz Loop configuration. Run /timbz-init in Claude Code to fill this in for your project, or edit by hand. See .timbz/SETUP.md. This file is LOCKED — the loop may never modify it.",
+  "enabled": true,
+  "discord": {
+    "channel_id": "",
+    "bot_user_id": "",
+    "approver_user_ids": []
+  },
+  "github": {
+    "repo": "OWNER/REPO",
+    "base_branch": "main",
+    "branch_prefix": "timbz/",
+    "merge_method": "squash",
+    "delete_branch_on_merge": true
+  },
+  "emoji": {
+    "idea": {
+      "🚀": "promote",
+      "👎": "kill"
+    },
+    "ship": {
+      "✅": "merge",
+      "🔁": "revise",
+      "❌": "reject",
+      "👀": "hold"
+    }
+  },
+  "limits": {
+    "max_changed_lines": 400,
+    "max_changed_files": 8,
+    "max_open_loop_prs": 2,
+    "max_ideas_per_pass": 3,
+    "target_approved_backlog": 3
+  },
+  "labels": {
+    "idea": "timbz:idea",
+    "approved": "timbz:approved",
+    "specced": "timbz:specced",
+    "building": "timbz:building",
+    "ship_ready": "timbz:ship-ready",
+    "needs_work": "timbz:needs-work",
+    "revise": "timbz:revise",
+    "hold": "timbz:hold",
+    "rejected": "timbz:rejected"
+  },
+  "protected_paths": [],
+  "$comment_size_exempt": "Generated or vendored — real files, but not hand-written, so they don't count against the size cap.",
+  "size_exempt_paths": [],
+  "$comment_extra_locked": "Project-specific additions to the loop's lockout. Config can only ADD locks, never remove one — the universal set is hardcoded in scripts/timbz_guard.py. Lock anything that would let the loop weaken its own gate or change how the app deploys.",
+  "extra_locked_paths": [],
+  "locked_paths": [
+    ".timbz/",
+    ".claude/",
+    ".github/",
+    "scripts/timbz_",
+    ".env",
+    ".gitignore"
+  ]
+}

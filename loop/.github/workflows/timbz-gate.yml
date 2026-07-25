@@ -1,0 +1,57 @@
+# The Timbz Loop approval gate.
+#
+# Polls the Discord posts the loop is waiting on and executes whatever an
+# authorised human answered with an emoji. This is the ONLY thing in the repo
+# that merges to main — the local loop has no merge path at all.
+#
+# It runs in the cloud so that approving works from a phone with the Mac shut.
+#
+# Kill switch: set "enabled": false in .timbz/config.json.
+name: timbz-gate
+
+on:
+  schedule:
+    # Every 5 minutes. GitHub's scheduler is best-effort and drifts under load;
+    # that's fine, an approval that lands 10 minutes late costs nothing.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Decide and print, but change nothing"
+        type: boolean
+        default: true
+
+concurrency:
+  # Never two gates at once — double-merging is the one race that matters.
+  group: timbz-gate
+  cancel-in-progress: false
+
+permissions:
+  contents: write        # merge, delete branches
+  pull-requests: write   # close, comment, label
+  issues: write          # close, comment, label
+
+jobs:
+  gate:
+    name: read reactions and act
+    runs-on: ubuntu-latest
+    # Don't run the cron on forks — a fork inherits the schedule but not the
+    # secrets, and would just fail every 5 minutes forever.
+    if: github.repository_owner == github.event.repository.owner.login
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install httpx
+
+      - name: Run the gate
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/timbz_gate.py \
+            ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}

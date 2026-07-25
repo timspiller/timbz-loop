@@ -1,0 +1,121 @@
+# Verification gate — Python template.
+#
+# Everything the Timbz Loop builds must go green here before it can be approved
+# in Discord: scripts/timbz_gate.py refuses to merge a PR whose check runs
+# aren't all green, and refuses outright if no checks reported at all. A repo
+# with no CI means a loop that can never ship — this file is not optional.
+#
+# Tailor the `smoke` job to your app (or delete it if there's nothing to boot),
+# and adjust the install commands to your dependency manager.
+#
+# `.github/` is in the loop's locked-path list, so a loop PR that touches this
+# file fails the `guardrails` job below. Changes here are a human job.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: pytest
+        run: python -m pytest -q
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install ruff
+        run: pip install ruff
+      - name: ruff
+        run: ruff check .
+
+  smoke:
+    name: app boots
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      # TAILOR ME: boot the app and hit a page or two. A syntax error that
+      # only shows up at import time will otherwise sail past unit tests.
+      - name: Boot and serve
+        run: |
+          python run.py &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8000/ > /dev/null && break
+            sleep 1
+          done
+          curl -sf --max-time 10 http://127.0.0.1:8000/ > /dev/null
+          echo "app boots and serves"
+
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pip-audit
+        run: pip install pip-audit
+      # Blocking on purpose. This app holds broker credentials, so shipping a
+      # known-vulnerable dependency is not an acceptable default. If a finding
+      # has no fix available yet, waive it explicitly and dated:
+      #   pip-audit -r requirements.txt --ignore-vuln GHSA-xxxx  # no fix as of YYYY-MM-DD
+      - name: pip-audit
+        run: pip-audit -r requirements.txt --strict
+
+  guardrails:
+    name: guardrails
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The guard diffs head against base, so it needs real history.
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check loop guardrails
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+        run: |
+          git fetch --no-tags origin "$GITHUB_BASE_REF"
+          python scripts/timbz_guard.py \
+            --base "origin/$GITHUB_BASE_REF" \
+            --head HEAD \
+            --branch "$GITHUB_HEAD_REF"

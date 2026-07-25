@@ -1,0 +1,100 @@
+# Verification gate — Node/TypeScript template.
+#
+# Everything the Timbz Loop builds must go green here before it can be approved
+# in Discord: scripts/timbz_gate.py refuses to merge a PR whose check runs
+# aren't all green, and refuses outright if no checks reported at all. A repo
+# with no CI means a loop that can never ship — this file is not optional.
+#
+# Tailor the commands to your package manager and scripts.
+#
+# `.github/` is in the loop's locked-path list, so a loop PR that touches this
+# file fails the `guardrails` job below. Changes here are a human job.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      # Type errors are defects, not style. If you have TypeScript, keep this.
+      - run: npx tsc --noEmit
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      # Blocking on purpose — shipping a known-vulnerable dependency shouldn't
+      # be the default. Raise the level if the noise floor is too high.
+      - run: npm audit --audit-level=high
+
+  guardrails:
+    name: guardrails
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The guard diffs head against base, so it needs real history.
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check loop guardrails
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+        run: |
+          git fetch --no-tags origin "$GITHUB_BASE_REF"
+          python scripts/timbz_guard.py \
+            --base "origin/$GITHUB_BASE_REF" \
+            --head HEAD \
+            --branch "$GITHUB_HEAD_REF"
