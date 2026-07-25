@@ -21,6 +21,26 @@ sure about, here it is" is a **successful** pass.
 3. `git fetch origin && git status` — if the working tree is dirty, stop and
    report it. Never build on top of someone else's uncommitted work.
 4. Confirm `gh auth status` works. If not, stop and say so.
+5. **Poke the approval gate**, so a reaction never waits on GitHub's scheduler:
+
+   ```bash
+   gh workflow run timbz-gate.yml -f dry_run=false
+   ```
+
+   Don't wait for it and don't read its result — it runs independently and this
+   pass shouldn't block on it. If the command fails, note it and carry on; the
+   cron is still there as a fallback.
+
+   **This does not give the loop a merge path** (guardrail 9). The workflow
+   reads the reactions and makes the decision entirely on its own, in the cloud,
+   with its own token. All this does is ask it to check now instead of whenever
+   GitHub gets round to the cron. The loop cannot influence what it decides, and
+   still cannot merge anything itself.
+
+   Why it's needed: `schedule` events are deprioritised on low-traffic private
+   repos and are routinely delayed by tens of minutes or dropped entirely. On
+   this repo the `*/5` cron did not fire once in the first hour. A reaction that
+   silently does nothing is the fastest way to stop trusting the whole system.
 
 ## Pick the stage
 

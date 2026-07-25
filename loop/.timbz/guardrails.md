@@ -127,6 +127,14 @@ to `main`, not a force-push anywhere. The **only** thing that merges is
 `.github/workflows/timbz-gate.yml`, and only in response to a ✅ from a Discord
 user id in `approver_user_ids`.
 
+The driver *may* run `gh workflow run timbz-gate.yml` to ask that workflow to
+check now — GitHub's `schedule` events are unreliable on quiet private repos,
+and a reaction that silently does nothing destroys trust in the whole system.
+That is not a merge path: the workflow reads the reactions, applies
+`merge_blockers()`, and decides by itself in the cloud with its own token. The
+loop cannot influence the outcome and never learns of one. Triggering a check is
+allowed; deciding is not.
+
 ## 10. One thing at a time
 
 One pass does one stage for one item. No parallel builds, no more than

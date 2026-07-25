@@ -160,7 +160,7 @@ before you trust it with anything that matters.
 
 | Symptom | Cause |
 |---|---|
-| Reaction does nothing | the PR/issue body is missing its `<!-- timbz-discord: ... -->` marker, or the cron hasn't fired (up to 5 min; GitHub's scheduler drifts) |
+| Reaction does nothing | Usually GitHub's scheduler, not your setup — `schedule` events are deprioritised on quiet private repos and are often delayed by tens of minutes or dropped entirely. The loop pokes the gate at the start of every pass for this reason; to force it now: `gh workflow run timbz-gate.yml -f dry_run=false`. Failing that, the PR/issue body is missing its `<!-- timbz-discord: ... -->` marker. |
 | "Nothing pending" but a post is waiting | the item lost its `timbz:idea` / `timbz:ship-ready` label |
 | ✅ answered with "can't merge yet" | a check is red or still running — the gate refuses to merge unverified code by design |
 | Nothing ever gets proposed | the `limits` caps are already met, or `enabled` is false |
