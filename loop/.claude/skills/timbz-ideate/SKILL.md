@@ -100,9 +100,12 @@ EOF
 ```
 
 If the idea touches a **protected path** (listed in `.timbz/project.md` and
-`.timbz/config.json`), say so loudly in Blast radius. The loop cannot build it —
-the issue exists so a human can. Label it `timbz:idea` anyway so it still gets
-pitched; the spec stage will hand it off.
+`.timbz/config.json`), say so plainly in Blast radius — a 🚀 on it authorises the
+loop to change auth, enforcement, or persistence, and the approver is entitled to
+know that before tapping. Say which files and what breaks if it's wrong.
+
+Don't editorialise or hedge it into meaninglessness. State the risk once,
+accurately, and let them decide.
 
 ## 5. Pitch it in Discord
 

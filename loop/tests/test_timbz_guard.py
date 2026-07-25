@@ -14,11 +14,14 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 from timbz_guard import (  # noqa: E402
+    CLEARANCE_ACTOR,
     LOCKED_PREFIXES,
     check,
+    clearance_granted,
     config_integrity,
     is_locked,
     is_protected,
+    linked_issue,
 )
 
 
@@ -108,11 +111,11 @@ def test_protected_path_is_blocked(cfg):
     assert any("Protected path" in v for v in violations)
 
 
-def test_protected_path_has_no_label_override(cfg):
-    """There is deliberately no unlock flag — the loop holds a token that could
-    apply any label to itself, so the only real gate is the branch name."""
+def test_protected_path_violation_explains_how_to_clear_it(cfg):
+    """Blocking without saying what unblocks it is how a check gets ignored."""
     violations = check(["src/auth.py"], 20, cfg)
-    assert any("non-`timbz/` branch" in v for v in violations)
+    assert any("🚀 on the linked issue" in v for v in violations)
+    assert any("github-actions[bot]" in v for v in violations)
 
 
 def test_is_protected_is_exact_not_prefix(cfg):
@@ -196,3 +199,89 @@ def test_hard_list_is_authoritative_even_if_config_lies(cfg):
     cfg["locked_paths"] = []
     violations = check([".github/workflows/ci.yml"], 5, cfg)
     assert any("Self-modification lockout" in v for v in violations)
+
+
+# -- protected paths under an approver clearance -----------------------------
+#
+# A 🚀 in Discord authorises the loop to build a protected-path change for that
+# one issue. What makes this safe is that the gate applies the clearance from
+# inside GitHub Actions as github-actions[bot] — an identity the loop's own
+# token cannot assume — and the guard verifies the actor, not just the label.
+
+
+def test_protected_path_allowed_once_cleared(cfg):
+    assert check(["src/billing.py"], 20, cfg, cleared=True) == []
+
+
+def test_protected_path_still_blocked_without_clearance(cfg):
+    assert any("Protected path" in v
+               for v in check(["src/billing.py"], 20, cfg, cleared=False))
+
+
+def test_clearance_does_not_unlock_self_modification(cfg):
+    """The whole system rests on rule 1. A 🚀 authorises app changes, never
+    changes to the loop's own rules."""
+    violations = check([".timbz/config.json", ".github/workflows/ci.yml"],
+                       20, cfg, cleared=True)
+    assert any("Self-modification lockout" in v for v in violations)
+
+
+def test_clearance_does_not_raise_the_size_caps(cfg):
+    violations = check(["src/billing.py"], 900, cfg, cleared=True)
+    assert any("900 lines changed" in v for v in violations)
+    assert not any("Protected path" in v for v in violations)
+
+
+@pytest.mark.parametrize("body,want", [
+    ("Closes #42\n\nSome text", 42),
+    ("fixes #7", 7),
+    ("Resolves #123 and more", 123),
+    ("mentions #99 without a keyword", None),
+    ("", None),
+    (None, None),
+])
+def test_linked_issue_parsing(body, want):
+    assert linked_issue(body) == want
+
+
+def _timeline(monkeypatch, events):
+    import timbz_guard
+    monkeypatch.setattr(timbz_guard, "_gh_api", lambda path: events)
+
+
+def test_clearance_from_the_gate_is_accepted(monkeypatch):
+    _timeline(monkeypatch, [{"event": "labeled",
+                             "label": {"name": "timbz:cleared"},
+                             "actor": {"login": CLEARANCE_ACTOR}}])
+    assert clearance_granted("o/r", 5, "timbz:cleared") is True
+
+
+def test_clearance_the_loop_applied_to_itself_is_rejected(monkeypatch):
+    """The attack this defends against: the loop holds a token that can add any
+    label, so presence of the label proves nothing. Only the actor does."""
+    _timeline(monkeypatch, [{"event": "labeled",
+                             "label": {"name": "timbz:cleared"},
+                             "actor": {"login": "a-human-user"}}])
+    assert clearance_granted("o/r", 5, "timbz:cleared") is False
+
+
+def test_clearance_for_a_different_label_is_rejected(monkeypatch):
+    _timeline(monkeypatch, [{"event": "labeled",
+                             "label": {"name": "timbz:approved"},
+                             "actor": {"login": CLEARANCE_ACTOR}}])
+    assert clearance_granted("o/r", 5, "timbz:cleared") is False
+
+
+@pytest.mark.parametrize("events", [None, []])
+def test_clearance_fails_closed_on_no_answer(monkeypatch, events):
+    """No token, network error, or empty timeline must never read as cleared."""
+    _timeline(monkeypatch, events)
+    assert clearance_granted("o/r", 5, "timbz:cleared") is False
+
+
+def test_clearance_needs_an_issue_and_a_repo(monkeypatch):
+    _timeline(monkeypatch, [{"event": "labeled",
+                             "label": {"name": "timbz:cleared"},
+                             "actor": {"login": CLEARANCE_ACTOR}}])
+    assert clearance_granted("o/r", None, "timbz:cleared") is False
+    assert clearance_granted("", 5, "timbz:cleared") is False

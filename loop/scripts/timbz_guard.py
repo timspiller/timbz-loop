@@ -18,8 +18,11 @@ import argparse
 import fnmatch
 import json
 import os
+import re
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Optional
 
@@ -106,8 +109,70 @@ def is_protected(path: str, protected: list[str]) -> bool:
     return path in protected
 
 
-def check(files: list[str], lines: int, cfg: dict) -> list[str]:
-    """Return a list of violations. Empty means the PR is within its rules."""
+# Only this identity can grant clearance. The gate workflow runs in GitHub
+# Actions and labels as github-actions[bot]; the local loop runs on a personal
+# token and labels as the user. The loop therefore cannot forge a clearance,
+# because it cannot become the Actions bot — which is the whole reason this
+# check verifies the actor rather than trusting the label's presence.
+CLEARANCE_ACTOR = "github-actions[bot]"
+
+
+def linked_issue(pr_body: Optional[str]) -> Optional[int]:
+    """The issue a PR closes — where the clearance lives."""
+    if not pr_body:
+        return None
+    m = re.search(r"\b(?:closes|fixes|resolves)\s+#(\d+)\b", pr_body,
+                  re.IGNORECASE)
+    return int(m.group(1)) if m else None
+
+
+def _gh_api(path: str) -> Optional[list]:
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if not token:
+        return None
+    req = urllib.request.Request(
+        f"https://api.github.com{path}",
+        headers={"Authorization": f"Bearer {token}",
+                 "Accept": "application/vnd.github+json",
+                 "X-GitHub-Api-Version": "2022-11-28",
+                 "User-Agent": "timbz-guard"})
+    try:
+        # noqa justification: the URL is built from a hardcoded https api.github.com
+        # base; `repo` and `issue` come from .timbz/config.json and a digit-only
+        # regex match, so no scheme or host can be injected here.
+        with urllib.request.urlopen(req, timeout=20) as resp:  # noqa: S310
+            return json.loads(resp.read())
+    except (urllib.error.URLError, ValueError, TimeoutError):
+        return None
+
+
+def clearance_granted(repo: str, issue: Optional[int], label: str) -> bool:
+    """Did a real Discord 🚀 clear this issue for protected-path work?
+
+    Fails closed on every uncertainty — no issue linked, no token, network
+    error, label applied by anyone other than the gate.
+    """
+    if not issue or not repo:
+        return False
+    events = _gh_api(f"/repos/{repo}/issues/{issue}/timeline?per_page=100")
+    if events is None:
+        return False
+    for ev in events:
+        if (ev.get("event") == "labeled"
+                and (ev.get("label") or {}).get("name") == label
+                and (ev.get("actor") or {}).get("login") == CLEARANCE_ACTOR):
+            return True
+    return False
+
+
+def check(files: list[str], lines: int, cfg: dict,
+          cleared: bool = False) -> list[str]:
+    """Return a list of violations. Empty means the PR is within its rules.
+
+    `cleared` means an authorised approver reacted 🚀 on this issue in Discord,
+    which authorises protected-path work for this issue only. It never unlocks
+    the self-modification lockout or the size caps.
+    """
     violations = []
     limits = cfg.get("limits", {})
     protected = cfg.get("protected_paths", [])
@@ -122,14 +187,15 @@ def check(files: list[str], lines: int, cfg: dict) -> list[str]:
             "      Changes to the loop are a human job, on a non-`timbz/` branch.")
 
     protected_hits = sorted(p for p in files if is_protected(p, protected))
-    if protected_hits:
+    if protected_hits and not cleared:
         violations.append(
             "Protected path (guardrail 2): a bug in these files costs real "
             "money, corrupts real data, or leaks a credential, so the loop may "
             "not change them on its own.\n"
             "      Offending paths: " + ", ".join(protected_hits) + "\n"
-            "      File an issue describing the change instead, and let a human "
-            "build it on a non-`timbz/` branch.")
+            "      A 🚀 on the linked issue in Discord clears this. The "
+            "clearance is verified against the identity that applied it "
+            "(github-actions[bot]), so it can only come from a real reaction.")
 
     max_files = limits.get("max_changed_files", 8)
     counted_files = [f for f in files if not _exempt(f, size_exempt_patterns(cfg))]
@@ -164,6 +230,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--base", default=None)
     ap.add_argument("--head", default="HEAD")
     ap.add_argument("--branch", default=None)
+    ap.add_argument("--pr-body", default="",
+                    help="PR body, used to find the linked issue's clearance")
     args = ap.parse_args(argv)
 
     branch = args.branch or os.environ.get("GITHUB_HEAD_REF", "")
@@ -183,7 +251,16 @@ def main(argv: Optional[list[str]] = None) -> int:
     print(f"Loop branch '{branch}': {len(files)} file(s), {lines} line(s) "
           f"changed vs {base}")
 
-    violations = check(files, lines, cfg) + config_integrity(cfg)
+    issue = linked_issue(args.pr_body)
+    cleared = clearance_granted(cfg.get("github", {}).get("repo", ""), issue,
+                                cfg.get("labels", {}).get("cleared",
+                                                          "timbz:cleared"))
+    if issue:
+        print(f"Linked issue #{issue}: "
+              + ("🚀 cleared for protected paths by an approver reaction"
+                 if cleared else "no clearance"))
+
+    violations = check(files, lines, cfg, cleared) + config_integrity(cfg)
 
     if not violations:
         print("✅ Within guardrails.")

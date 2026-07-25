@@ -25,8 +25,20 @@ gh issue list --state open --label "timbz:specced" --json number,title,body
 
 Take the **oldest**. Read the whole contract — every AC and every NG.
 
-Refuse and comment if: it has no `## Contract` section, it touches a protected
-path, or the size estimate exceeds the caps. Label `timbz:needs-work` and stop.
+Refuse and comment if: it has no `## Contract` section, the size estimate
+exceeds the caps, or it touches a protected path **without** a `timbz:cleared`
+label on the issue. Label `timbz:needs-work` and stop.
+
+`timbz:cleared` means an approver reacted 🚀 in Discord, which authorises this
+issue — and only this issue — to change protected paths. Check it with
+`gh issue view <N> --json labels`. It does not relax anything else: the
+self-modification lockout and the size caps still apply, and CI verifies the
+clearance against the identity that applied it, so adding the label yourself
+achieves nothing.
+
+Working under a clearance means being *more* careful, not less: read the
+existing tests in that area before you touch it, cover the failure paths, and
+stop if the contract requires guessing at intent.
 
 ```bash
 gh issue edit <N> --add-label "timbz:building" --remove-label "timbz:specced"
@@ -67,7 +79,7 @@ Commit what you have, comment on the issue explaining precisely what you found,
 label `timbz:needs-work`, and stop if:
 
 - an AC turns out to be impossible or wrong as written
-- the change can't be done without touching a protected or locked path
+- the change needs a locked path, or a protected path with no clearance
 - you blow the size cap
 - you hit something you don't understand well enough to be confident
 

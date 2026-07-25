@@ -41,7 +41,8 @@
     "needs_work": "timbz:needs-work",
     "revise": "timbz:revise",
     "hold": "timbz:hold",
-    "rejected": "timbz:rejected"
+    "rejected": "timbz:rejected",
+    "cleared": "timbz:cleared"
   },
   "protected_paths": [],
   "$comment_size_exempt": "Generated or vendored — real files, but not hand-written, so they don't count against the size cap.",

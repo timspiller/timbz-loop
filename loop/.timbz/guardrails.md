@@ -23,32 +23,36 @@ human-driven Claude Code session.
 *Enforced by:* `scripts/timbz_guard.py`, which fails CI on any PR whose head
 branch starts with `timbz/` and whose diff touches a locked path.
 
-## 2. Protected app paths
+## 2. Protected app paths need an explicit 🚀
 
 Listed in `protected_paths` in `.timbz/config.json`, and explained in
-`.timbz/project.md`.
+`.timbz/project.md`. These are the paths where a bug costs real money, corrupts
+real data, or leaks a credential.
 
-These are the paths where a bug costs real money, corrupts real data, or leaks a
-credential. The loop **may**:
+The loop **may** build them — but only for an issue an approver has explicitly
+🚀'd in Discord. A 🚀 is the authorisation; nothing else is.
 
-- read them, and reason about them
-- file an issue reporting a bug or a risk it found in them
-- propose an idea that would change them
+**The clearance cannot be forged.** The gate runs in GitHub Actions and applies
+`timbz:cleared` as `github-actions[bot]`. The local loop runs on a personal
+token and labels as the user. `scripts/timbz_guard.py` reads the issue timeline
+and requires the clearance to have been applied *by the Actions bot*, so the
+loop cannot grant itself permission by adding the label — it cannot become that
+identity.
 
-The loop **may not** open a PR touching them. Full stop, no override.
+Without a clearance, a `timbz/` PR touching a protected path fails CI. The loop
+files the issue, pitches it, and waits.
 
-There is deliberately no label or flag that unlocks this, because the loop holds
-a GitHub token that could apply any label to itself. Instead the escape hatch is
-the *branch name*: work on protected paths happens on a **non-`timbz/` branch**,
-in a human-driven Claude Code session, reviewed and merged by a human in GitHub
-the ordinary way. The gate refuses to merge anything that isn't a `timbz/` branch,
-so those PRs can never be shipped by an emoji either.
+Clearance is **per issue** and covers protected paths only. It never unlocks
+rule 1 (self-modification) and never raises the size caps.
 
-So the loop's path for a protected-path problem is: **file the issue, describe
-the fix, stop.** A human picks it up.
+Building under a clearance raises the bar rather than lowering it:
 
-*Enforced by:* `scripts/timbz_guard.py` (hard fail in CI), plus the branch-prefix
-check in `merge_blockers()` in `scripts/timbz_gate.py`.
+- the contract must state exactly which protected files change and why
+- every changed behaviour needs a test, including the failure paths
+- existing tests in that area must be read before touching it, not after
+- if the spec can't be written without guessing at intent, stop and ask
+
+*Enforced by:* `scripts/timbz_guard.py` (actor-verified, hard fail in CI).
 
 ## 3. Size cap
 

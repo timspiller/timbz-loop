@@ -289,10 +289,17 @@ def execute(entry: dict, decision: dict, gh: GitHub, dc: Discord,
             return f"{tag}: already approved"
         if dry_run:
             return f"{tag}: WOULD label #{num} {labels['approved']}"
-        gh.add_labels(num, [labels["approved"]])
+        # The clearance label is what lets a build touch protected paths, and
+        # it is only meaningful because *this* process applies it: the gate runs
+        # in Actions as github-actions[bot], an identity the local loop's token
+        # cannot assume. timbz_guard.py verifies the actor, not just the label.
+        gh.add_labels(num, [labels["approved"], labels["cleared"]])
         gh.remove_label(num, labels["idea"])
-        gh.comment(num, "🚀 Approved in Discord by an authorised approver. "
-                        "The loop will spec and build this on its next pass.")
+        gh.comment(num, "🚀 Approved in Discord by an authorised approver.\n\n"
+                        "This also clears the build to touch protected paths if "
+                        "the contract needs them — the clearance is verified "
+                        "against the actor that applied it, so only a real "
+                        "reaction can grant it.")
         say(f"🚀 Queued — issue #{num} is approved. "
             f"The loop will pick it up on the next pass.")
         return f"{tag}: promoted #{num}"
@@ -455,6 +462,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                     help="decide and print, but change nothing")
     args = ap.parse_args(argv)
 
+    _load_dotenv()  # local runs keep the token in .env; CI passes it in the env
     cfg = load_config()
 
     if not cfg.get("enabled", False):
@@ -465,6 +473,16 @@ def main(argv: Optional[list[str]] = None) -> int:
     if not channel or not cfg["discord"].get("approver_user_ids"):
         print("Discord channel_id or approver_user_ids not configured — "
               "gate is inert. See .timbz/SETUP.md.")
+        return 0
+
+    # Setup is ordered channel-ids-then-secret, so there's a window where the
+    # config is complete but DISCORD_BOT_TOKEN isn't set yet. Say so once,
+    # clearly, instead of raising a stack trace every five minutes.
+    if not os.environ.get("DISCORD_BOT_TOKEN", "").strip():
+        print("DISCORD_BOT_TOKEN is not set — gate is inert.\n"
+              "  In CI: add it as a repository secret (Settings → Secrets and "
+              "variables → Actions).\n"
+              "  Locally: add it to .env. See .timbz/SETUP.md step 4.")
         return 0
 
     failures = 0
