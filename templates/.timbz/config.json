@@ -28,9 +28,9 @@
   "limits": {
     "max_changed_lines": 400,
     "max_changed_files": 8,
-    "max_open_loop_prs": 2,
-    "max_ideas_per_pass": 3,
-    "target_approved_backlog": 3
+    "max_open_loop_prs": 6,
+    "max_ideas_per_pass": 5,
+    "target_approved_backlog": 8
   },
   "labels": {
     "idea": "timbz:idea",
@@ -60,5 +60,11 @@
   "$comment_build": "What this project IS, at the repo root. The builder picks its language provider from these, so scripts/timbz_manifest.py fails CI if one goes missing or a competing manifest appears. /timbz-init sets this.",
   "build": {
     "required_root_files": []
+  },
+  "$comment_fast_lane": "Low-blast-radius paths run the whole pipeline in ONE pass instead of four. A change qualifies only if EVERY changed path matches, and none is protected or locked. Set paths to your frontend/asset directories; leave empty to disable.",
+  "fast_lane": {
+    "enabled": false,
+    "paths": [],
+    "max_items_per_pass": 3
   }
 }

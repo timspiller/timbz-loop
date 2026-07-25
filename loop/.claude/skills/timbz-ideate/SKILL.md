@@ -18,6 +18,16 @@ Read these three first, every pass:
 
 ## 1. Look before you think
 
+**The current focus is the UI** — see the weighting and the quality bar in
+`.timbz/rubric.md`. For UI work that means one thing above all: **boot the app
+and look at it.** An idea derived from reading CSS is not an idea, it's a guess.
+Screenshot the screen, read computed styles out of the DOM, try it narrow, and
+try it with no data.
+
+Audit **one screen properly** rather than glancing at five. A screen that has
+never been looked at is worth more than a second pass over one that has — the
+rubric's standing backlog lists which are still untouched.
+
 Do not brainstorm from the README. Go read code and evidence. Pick **two or
 three** lenses per pass and actually dig — rotate them across passes so the loop
 doesn't keep mining the same seam:
@@ -64,10 +74,17 @@ X" is confidence 1. "I read `api.py:412` and that error path returns 200" is
 confidence 5. **If you can't point at the specific code or reproduce the
 problem, the idea isn't ready — do the research or drop it.**
 
-Only ideas scoring **≥ 4** get posted. Post at most `limits.max_ideas_per_pass`
-(default 3), best first. Posting one excellent idea beats posting three padded
-ones. Posting zero and saying "nothing scored above 4 this pass, here's what I
-looked at" is a fine outcome.
+Only ideas scoring **≥ 4** get posted. Post up to `limits.max_ideas_per_pass`,
+best first.
+
+**Batch them.** Every idea costs the approver a reaction, and reacting to four
+in one sitting is far cheaper than four separate pings across an hour. When a
+screen audit turns up several genuine problems, file and post them together.
+
+That is not licence to pad. Three excellent ideas beat five with two
+make-weights, and posting zero — "nothing scored above 4 this pass, here's what
+I looked at and what I ruled out" — is still a good outcome. The batch exists to
+save the approver's attention, not to spend it.
 
 ## 4. File the issue
 
