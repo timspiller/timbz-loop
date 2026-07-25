@@ -58,11 +58,23 @@ Work down this list and run the **first** one that has work. Then stop.
 Useful queries:
 
 ```bash
-gh pr list --state open --json number,headRefName,labels,title
+gh pr list --state open --json number,headRefName,labels,title,body
 gh issue list --state open --label "timbz:specced" --json number,title
 gh issue list --state open --label "timbz:approved" --json number,title
 gh issue list --state open --label "timbz:idea" --json number,title
 ```
+
+**Never pick an issue that already has an open PR.** Before claiming anything at
+stage 4 or 5, check that no open PR says `Closes #<N>`:
+
+```bash
+gh pr list --state open --json number,body --jq '.[] | .body' | grep -o 'Closes #[0-9]*'
+```
+
+Labels are the queue, but they're maintained by hand and a missed transition is
+invisible. This check is the backstop: it already happened once — a build pass
+skipped the `specced` → `building` step, leaving an issue looking unbuilt while
+its PR sat in review. Without this, the loop rebuilds finished work in a loop.
 
 **Never touch a PR or issue labelled `timbz:hold`.** That label means the approver
 parked it deliberately; only they remove it.
